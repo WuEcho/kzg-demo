@@ -79,14 +79,14 @@ func BenchmarkKZGCommit(b *testing.B) {
 //	}
 //}
 
-func TestInitMultiAdaptiveSdk(t *testing.T) {
+func TestInitKZGSdk(t *testing.T) {
 	index := 1
 	s := strconv.Itoa(index)
 	data := bytes.Repeat([]byte(s), 1024)
 
-	d, err := InitMultiAdaptiveSdk("./srs")
+	d, err := InitKZGSdk("./srs")
 	if err != nil {
-		println("InitMultiAdaptiveSdk err", err.Error())
+		println("InitKZGSdk err", err.Error())
 	}
 	commit, err := d.GenerateDataCommit(data)
 	if err != nil {

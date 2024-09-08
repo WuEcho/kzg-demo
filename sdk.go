@@ -23,14 +23,14 @@ const dSrsSize = 1 << 20
 
 var (
 	executed      bool
-	MultiAdaptive MultiAdaptiveSdk
+	KzgSdk KZGSdk
 )
 
-type MultiAdaptiveSdk struct {
+type KZGSdk struct {
 	srs *kzg.SRS
 }
 
-// NewMultiAdaptiveSdk 初始化sdk，可以设置srsSize=1 << 16
+// NewKZGSdk 初始化sdk，可以设置srsSize=1 << 16
 func GenerateSRSFile() error {
 	quickSrs, err := kzg.NewSRS(ecc.NextPowerOfTwo(dSrsSize), big.NewInt(-1))
 	if err != nil {
@@ -52,7 +52,7 @@ func GenerateSRSFile() error {
 }
 
 // all user should load same srs file
-func InitMultiAdaptiveSdk(srsPath string) (*MultiAdaptiveSdk, error) {
+func InitKZGSdk(srsPath string) (*KZGSdk, error) {
 	if !executed {
 		var newsrs kzg.SRS
 		newsrs.Pk.G1 = make([]bn254.G1Affine, dSrsSize)
@@ -68,14 +68,14 @@ func InitMultiAdaptiveSdk(srsPath string) (*MultiAdaptiveSdk, error) {
 		if err != nil {
 			return nil, err
 		}
-		MultiAdaptive = MultiAdaptiveSdk{srs: &newsrs}
-		return &MultiAdaptive, nil
+		KzgSdk = KZGSdk{srs: &newsrs}
+		return &KzgSdk, nil
 	} else {
-		return &MultiAdaptive, nil
+		return &KzgSdk, nil
 	}
 }
 
-func (multiAdaptiveSdk *MultiAdaptiveSdk) VerifyCommitWithProof(commit []byte, proof []byte, claimedValue []byte) (bool, error) {
+func (KzgSdkSdk *KZGSdk) VerifyCommitWithProof(commit []byte, proof []byte, claimedValue []byte) (bool, error) {
 	var h bn254.G1Affine
 	h.SetBytes(proof)
 	var c fr.Element
@@ -92,7 +92,7 @@ func (multiAdaptiveSdk *MultiAdaptiveSdk) VerifyCommitWithProof(commit []byte, p
 	var digest kzg.Digest
 	digest.SetBytes(commit)
 
-	err := kzg.Verify(&digest, &prof, p, multiAdaptiveSdk.srs.Vk)
+	err := kzg.Verify(&digest, &prof, p, KzgSdkSdk.srs.Vk)
 	if err != nil {
 		return false, err
 	} else {
@@ -100,22 +100,22 @@ func (multiAdaptiveSdk *MultiAdaptiveSdk) VerifyCommitWithProof(commit []byte, p
 	}
 }
 
-func (multiAdaptiveSdk *MultiAdaptiveSdk) SRS() *kzg.SRS {
-	return multiAdaptiveSdk.srs
+func (KzgSdkSdk *KZGSdk) SRS() *kzg.SRS {
+	return KzgSdkSdk.srs
 }
 
-func (multiAdaptiveSdk *MultiAdaptiveSdk) GenerateDataCommit(data []byte) (kzg.Digest, error) {
+func (KzgSdkSdk *KZGSdk) GenerateDataCommit(data []byte) (kzg.Digest, error) {
 	poly := dataToPolynomial(data)
-	digest, err := kzg.Commit(poly, multiAdaptiveSdk.srs.Pk)
+	digest, err := kzg.Commit(poly, KzgSdkSdk.srs.Pk)
 	if err != nil {
 		return kzg.Digest{}, err
 	}
 	return digest, nil
 }
 
-func (multiAdaptiveSdk *MultiAdaptiveSdk) GenerateDataCommitAndProof(data []byte) (kzg.Digest, kzg.OpeningProof, error) {
+func (KzgSdkSdk *KZGSdk) GenerateDataCommitAndProof(data []byte) (kzg.Digest, kzg.OpeningProof, error) {
 	poly := dataToPolynomial(data)
-	digest, err := kzg.Commit(poly, multiAdaptiveSdk.srs.Pk)
+	digest, err := kzg.Commit(poly, KzgSdkSdk.srs.Pk)
 	if err != nil {
 		return kzg.Digest{}, kzg.OpeningProof{}, err
 	}
@@ -124,14 +124,14 @@ func (multiAdaptiveSdk *MultiAdaptiveSdk) GenerateDataCommitAndProof(data []byte
 	var openPoint fr.Element
 	openPoint.SetBytes(commitHash[:])
 
-	openingProof, err := kzg.Open(poly, openPoint, multiAdaptiveSdk.srs.Pk)
+	openingProof, err := kzg.Open(poly, openPoint, KzgSdkSdk.srs.Pk)
 	if err != nil {
 		return digest, kzg.OpeningProof{}, err
 	}
 	return digest, openingProof, nil
 }
 
-func (multiAdaptiveSdk *MultiAdaptiveSdk) DataToPolynomial(data []byte) []fr.Element {
+func (KzgSdkSdk *KZGSdk) DataToPolynomial(data []byte) []fr.Element {
 	return dataToPolynomial(data)
 }
 
@@ -146,12 +146,12 @@ func dataToPolynomial(data []byte) []fr.Element {
 	return ps
 }
 
-func (multiAdaptiveSdk *MultiAdaptiveSdk) DataCommit(polynomials []fr.Element) (kzg.Digest, error) {
-	digest, err := kzg.Commit(polynomials, multiAdaptiveSdk.srs.Pk)
+func (KzgSdkSdk *KZGSdk) DataCommit(polynomials []fr.Element) (kzg.Digest, error) {
+	digest, err := kzg.Commit(polynomials, KzgSdkSdk.srs.Pk)
 	return digest, err
 }
 
-//func (multiAdaptiveSdk *MultiAdaptiveSdk) TxSign(key *ecdsa.PrivateKey, commitment kzg.Digest, addressA common.Address, addressB common.Address, data []byte) ([]byte, []byte) {
+//func (KzgSdkSdk *KZGSdk) TxSign(key *ecdsa.PrivateKey, commitment kzg.Digest, addressA common.Address, addressB common.Address, data []byte) ([]byte, []byte) {
 //	commitmentBytes := commitment.Bytes()
 //	var mergedData []byte
 //	mergedData = append(mergedData, commitmentBytes[:]...)
@@ -210,11 +210,11 @@ func random1Polynomial(size int) []fr.Element {
 /*
 func main() {
 	fmt.Println("The steps to generate CD(commit data)")
-	//sdk := NewMultiAdaptiveSdk(dSrsSize)
-	fmt.Println("1. load SRS file to init MultiAdaptive SDK")
-	sdk, err := InitMultiAdaptiveSdk(dSrsSize, "./srs")
+	//sdk := NewKZGSdk(dSrsSize)
+	fmt.Println("1. load SRS file to init KzgSdk SDK")
+	sdk, err := InitKZGSdk(dSrsSize, "./srs")
 	if err != nil {
-		fmt.Println("InitMultiAdaptiveSdk failed")
+		fmt.Println("InitKZGSdk failed")
 		return
 	}
 

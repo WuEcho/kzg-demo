@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestEIP155FdSigner_Hash(t *testing.T) {
+func TestEIP155DASigner_Hash(t *testing.T) {
 	addr := common.HexToAddress("0x1ca0a16a5a6b329a61bb3c8af4bd9f5abd892af8")
-	signer := NewEIP155FdSigner(big.NewInt(11155111))
+	signer := NewEIP155DASigner(big.NewInt(11155111))
 	index := 0
 	length := 1024
 	var digest kzg.Digest
@@ -28,8 +28,8 @@ func BenchmarkVeriftSign(b *testing.B) {
 			signHash := common.HexToHash("0x194adeeafdb655b2da6c141abdcae1e908ed49c6986e45d72c3ca83658cd9721")
 			signData,_ := hex.DecodeString("d02ee277524e10f0f59300bb60b7167ca741b37d85ad49b20ef13f782c35110d7d7898f13b27d649af86d28ca87df08ff8d8ca90d83863ea0a63f6a095145f291c")
 			sender := common.HexToAddress("0x72B331Cde50eF0E183E007BB1050FF4b18aF59c1")
-			signer := NewEIP155FdSigner(big.NewInt(11))
-			from, err := FdSender(signer,signData,signHash)
+			signer := NewEIP155DASigner(big.NewInt(11))
+			from, err := DASender(signer,signData,signHash)
 			if err != nil {
 				println("err----",err.Error())
 			}

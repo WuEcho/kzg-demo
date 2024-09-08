@@ -21,8 +21,8 @@ var (
 	ErrInvalidChainId = errors.New("invalid chain id for signer")
 )
 
-// SignFd signs the fileData using the given signer and private key.
-func SignFd(sender common.Address, index, length uint64, commitment kzg.Digest, signer FdSigner, prv *ecdsa.PrivateKey) (common.Hash, []byte, error) {
+// SignDA signs the Data using the given signer and private key.
+func SignDA(sender common.Address, index, length uint64, commitment kzg.Digest, signer DASigner, prv *ecdsa.PrivateKey) (common.Hash, []byte, error) {
 	h := signer.Hash(sender, index, length, commitment)
 	sig, err := crypto.Sign(h[:], prv)
 	if err != nil {
@@ -37,10 +37,10 @@ func SignFd(sender common.Address, index, length uint64, commitment kzg.Digest, 
 	return h, newSig, nil
 }
 
-// FdSender returns the address derived from the signature (V, R, S) using secp256k1
+// DASender returns the address derived from the signature (V, R, S) using secp256k1
 // elliptic curve and an error if it failed deriving or upon an incorrect
 // signature.
-func FdSender(signer FdSigner, sig []byte, signHash common.Hash) (common.Address, error) {
+func DASender(signer DASigner, sig []byte, signHash common.Hash) (common.Address, error) {
 	addr, err := signer.Sender(sig, signHash)
 	if err != nil {
 		return common.Address{}, err
@@ -48,7 +48,7 @@ func FdSender(signer FdSigner, sig []byte, signHash common.Hash) (common.Address
 	return addr, nil
 }
 
-func FdGetSender(signer FdSigner, sig []byte, sender common.Address, index, length uint64, commitment kzg.Digest) (common.Address, error) {
+func DAGetSender(signer DASigner, sig []byte, sender common.Address, index, length uint64, commitment kzg.Digest) (common.Address, error) {
 	h := signer.Hash(sender, index, length, commitment)
 	addr, err := signer.Sender(sig, h)
 	if err != nil {
@@ -57,13 +57,13 @@ func FdGetSender(signer FdSigner, sig []byte, sender common.Address, index, leng
 	return addr, nil
 }
 
-// FdSigner encapsulates fileData signature handling. The name of this type is slightly
+// DASigner encapsulates fileData signature handling. The name of this type is slightly
 // misleading because Signers don't actually sign, they're just for validating and
 // processing of signatures.
 //
 // Note that this interface is not a stable API and may change at any time to accommodate
 // new protocol rules.
-type FdSigner interface {
+type DASigner interface {
 	// Sender returns the sender address of the fileData.
 	Sender(sig []byte, signHash common.Hash) (common.Address, error)
 
@@ -78,51 +78,51 @@ type FdSigner interface {
 	Hash(sender common.Address, index, length uint64, commitment kzg.Digest) common.Hash
 
 	// Equal returns true if the given signer is the same as the receiver.
-	Equal(FdSigner) bool
+	Equal(DASigner) bool
 }
 
 //var big8 = big.NewInt(8)
 
 // EIP155Signer implements Signer using the EIP-155 rules. This accepts transactions which
 // are replay-protected as well as unprotected homestead transactions.
-type EIP155FdSigner struct {
+type EIP155DASigner struct {
 	chainId, chainIdMul *big.Int
 }
 
-func NewEIP155FdSigner(chainId *big.Int) EIP155FdSigner {
+func NewEIP155DASigner(chainId *big.Int) EIP155DASigner {
 	if chainId == nil {
 		chainId = new(big.Int)
 	}
-	return EIP155FdSigner{
+	return EIP155DASigner{
 		chainId:    chainId,
 		chainIdMul: new(big.Int).Mul(chainId, big.NewInt(2)),
 	}
 }
 
-func (s EIP155FdSigner) ChainID() *big.Int {
+func (s EIP155DASigner) ChainID() *big.Int {
 	return s.chainId
 }
 
-func (s EIP155FdSigner) Equal(s2 FdSigner) bool {
-	eip155, ok := s2.(EIP155FdSigner)
+func (s EIP155DASigner) Equal(s2 DASigner) bool {
+	eip155, ok := s2.(EIP155DASigner)
 	return ok && eip155.chainId.Cmp(s.chainId) == 0
 }
 
-func (s EIP155FdSigner) Sender(sig []byte, signHash common.Hash) (common.Address, error) {
+func (s EIP155DASigner) Sender(sig []byte, signHash common.Hash) (common.Address, error) {
 	R, S, V := sliteSignature(sig)
 	return recoverPlain(signHash, R, S, V, true)
 }
 
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
-func (s EIP155FdSigner) SignatureValues(sig []byte) (R, S, V *big.Int, err error) {
+func (s EIP155DASigner) SignatureValues(sig []byte) (R, S, V *big.Int, err error) {
 	R, S, V = decodeSignature(sig)
 	return R, S, V, nil
 }
 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
-func (s EIP155FdSigner) Hash(sender common.Address, index, length uint64, commitment kzg.Digest) common.Hash {
+func (s EIP155DASigner) Hash(sender common.Address, index, length uint64, commitment kzg.Digest) common.Hash {
 	data := make([]byte, 0)
 	dt := uint64ToBigEndianHexBytes(s.chainId.Uint64())
 	chainId := transTo32Byte(dt)
@@ -140,45 +140,45 @@ func (s EIP155FdSigner) Hash(sender common.Address, index, length uint64, commit
 	return crypto.Keccak256Hash(data)
 }
 
-// HomesteadFdSigner implements Signer interface using the
+// HomesteadDASigner implements Signer interface using the
 // homestead rules.
-type HomesteadFdSigner struct{ FrontierFdSigner }
+type HomesteadDASigner struct{ FrontierDASigner }
 
-func (s HomesteadFdSigner) ChainID() *big.Int {
+func (s HomesteadDASigner) ChainID() *big.Int {
 	return nil
 }
 
-func (s HomesteadFdSigner) Equal(s2 FdSigner) bool {
-	_, ok := s2.(HomesteadFdSigner)
+func (s HomesteadDASigner) Equal(s2 DASigner) bool {
+	_, ok := s2.(HomesteadDASigner)
 	return ok
 }
 
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
-func (hs HomesteadFdSigner) SignatureValues(sig []byte) (r, s, v *big.Int, err error) {
-	return hs.FrontierFdSigner.SignatureValues(sig)
+func (hs HomesteadDASigner) SignatureValues(sig []byte) (r, s, v *big.Int, err error) {
+	return hs.FrontierDASigner.SignatureValues(sig)
 }
 
-func (hs HomesteadFdSigner) Sender(sig []byte, signHash common.Hash) (common.Address, error) {
+func (hs HomesteadDASigner) Sender(sig []byte, signHash common.Hash) (common.Address, error) {
 	r, s, v := decodeSignature(sig)
 	v.Sub(v, new(big.Int).SetUint64(27))
 	return recoverPlain(signHash, r, s, v, true)
 }
 
-// FrontierFdSigner implements Signer interface using the
+// FrontierDASigner implements Signer interface using the
 // frontier rules.
-type FrontierFdSigner struct{}
+type FrontierDASigner struct{}
 
-func (s FrontierFdSigner) ChainID() *big.Int {
+func (s FrontierDASigner) ChainID() *big.Int {
 	return nil
 }
 
-func (s FrontierFdSigner) Equal(s2 FdSigner) bool {
-	_, ok := s2.(FrontierFdSigner)
+func (s FrontierDASigner) Equal(s2 DASigner) bool {
+	_, ok := s2.(FrontierDASigner)
 	return ok
 }
 
-func (fs FrontierFdSigner) Sender(sig []byte, signHash common.Hash) (common.Address, error) {
+func (fs FrontierDASigner) Sender(sig []byte, signHash common.Hash) (common.Address, error) {
 	r, s, v := sliteSignature(sig)
 	v = v.Mul(v, new(big.Int).SetUint64(27))
 	return recoverPlain(signHash, r, s, v, false)
@@ -186,14 +186,14 @@ func (fs FrontierFdSigner) Sender(sig []byte, signHash common.Hash) (common.Addr
 
 // SignatureValues returns signature values. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
-func (fs FrontierFdSigner) SignatureValues(sig []byte) (r, s, v *big.Int, err error) {
+func (fs FrontierDASigner) SignatureValues(sig []byte) (r, s, v *big.Int, err error) {
 	r, s, v = decodeSignature(sig)
 	return r, s, v, nil
 }
 
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
-func (fs FrontierFdSigner) Hash(sender common.Address, index, length uint64, commitment kzg.Digest) common.Hash {
+func (fs FrontierDASigner) Hash(sender common.Address, index, length uint64, commitment kzg.Digest) common.Hash {
 	data := make([]byte, 0)
 	indexByte := transTo32Byte(uint64ToBigEndianHexBytes(index))
 	lengthByte := transTo32Byte(uint64ToBigEndianHexBytes(length))
